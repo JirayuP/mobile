@@ -20,15 +20,7 @@ class DatabaseHelper {
           'content TEXT NOT NULL, '
           'date TEXT NOT NULL,'
           'mood TEXT NOT NULL,'
-          'quote TEXT NOT NULL)',
-        );
-        db.execute(
-          'CREATE TABLE pokemons('
-          'id INTEGER PRIMARY KEY AUTOINCREMENT, '
-          'number INTEGER NOT NULL, '
-          'name TEXT NOT NULL, '
-          'remark TEXT NOT NULL,'
-          'date TEXT NOT NULL,',
+          'quote TEXT)',
         );
       },
     );
@@ -36,9 +28,9 @@ class DatabaseHelper {
   }
 
   // เพิ่มบันทึก
-  static Future<void> insert(Poke pokemon) async {
+  static Future<void> insert(Diary diary) async {
     final db = await database;
-    await db.insert('pokemons', pokemon.toMap());
+    await db.insert('diaries', diary.toMap());
   }
 
   // อ่านบันทึกทั้งหมด
@@ -48,25 +40,19 @@ class DatabaseHelper {
     return maps.map((map) => Diary.fromMap(map)).toList();
   }
 
-  static Future<List<Poke>> getPokemon() async {
-    final db = await database;
-    final maps = await db.query('pokemons', orderBy: 'id DESC');
-    return maps.map((map) => Poke.fromMap(map)).toList();
-  }
-
   // ลบบันทึก
   static Future<void> delete(int id) async {
     final db = await database;
-    await db.delete('pokemons', where: 'id = ?', whereArgs: [id]);
+    await db.delete('diaries', where: 'id = ?', whereArgs: [id]);
   }
 
-  static Future<void> update(Poke pokemon) async {
+  static Future<void> update(Diary diary) async {
     final db = await database;
     await db.update(
-      'pokemons',
-      pokemon.toMap(),
+      'diaries',
+      diary.toMap(),
       where: 'id = ?',
-      whereArgs: [pokemon.id],
+      whereArgs: [diary.id],
     );
   }
 

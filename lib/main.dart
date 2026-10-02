@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:mydiary/pokemon.dart';
 import 'database_helper.dart';
 import 'quote.dart';
 import 'api_service.dart';
-import 'pokemon.dart';
 
 void main() => runApp(const MyApp());
 
@@ -45,39 +43,6 @@ class Diary {
   );
 }
 
-class Poke {
-  final int id;
-  final int number;
-  final String name;
-  final String remark;
-  final String date;
-
-  Poke({
-    required this.id,
-    required this.number,
-    required this.name,
-    required this.remark,
-    required this.date,
-  });
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'number': number,
-      'name': name,
-      'remark': remark,
-      'date': date,
-    };
-  }
-
-  factory Poke.fromMap(Map<String, dynamic> map) => Poke(
-    id: map['id'],
-    number: map['number'],
-    name: map['name'],
-    remark: map['remark'],
-    date: map['date'],
-  );
-}
-
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
@@ -99,11 +64,8 @@ class DiaryListPage extends StatefulWidget {
 
 class _DiaryListPageState extends State<DiaryListPage> {
   List<Diary> diaries = []; // เริ่มจากว่าง (จะโหลดจาก DB)
-  List<Poke> pokemons = [];
   late Future<Quote> _quoteFuture;
-  late Future<Pokemon> _pokemons;
   Quote? _currentQuote;
-  Pokemon? _currntpokemon;
   bool _isSearching = false; // กำลังเปิดโหมดค้นหาอยู่หรือไม่
   final TextEditingController _searchController =
       TextEditingController(); // คอนโทรลเลอร์ช่องค้นหา
@@ -113,8 +75,7 @@ class _DiaryListPageState extends State<DiaryListPage> {
   void initState() {
     super.initState();
     _quoteFuture = ApiService.fetchQuote();
-    _pokemons = ApiService.fetchPokemon();
-    _loadPokemon(); // โหลดข้อมูลตอนเปิดหน้า
+    _loadDiaries(); // โหลดข้อมูลตอนเปิดหน้า
   }
 
   @override
@@ -124,10 +85,10 @@ class _DiaryListPageState extends State<DiaryListPage> {
   }
 
   // โหลดจาก DB
-  Future<void> _loadPokemon() async {
-    final data = await DatabaseHelper.getPokemon();
+  Future<void> _loadDiaries() async {
+    final data = await DatabaseHelper.getAll();
     setState(() {
-      pokemons = data;
+      diaries = data;
     });
   }
 
@@ -145,20 +106,20 @@ class _DiaryListPageState extends State<DiaryListPage> {
   }
 
   // เพิ่ม: เขียน DB แล้วโหลดใหม่
-  Future<void> _addDiary(Poke pokemon) async {
-    await DatabaseHelper.insert(pokemon);
-    await _loadPokemon();
+  Future<void> _addDiary(Diary diary) async {
+    await DatabaseHelper.insert(diary);
+    await _loadDiaries();
   }
 
-  Future<void> _updateDiary(Poke pokemon) async {
-    await DatabaseHelper.update(pokemon);
-    await _loadPokemon();
+  Future<void> _updateDiary(Diary diary) async {
+    await DatabaseHelper.update(diary);
+    await _loadDiaries();
   }
 
   // ลบ: เขียน DB แล้วโหลดใหม่
   Future<void> _deleteDiary(int id) async {
     await DatabaseHelper.delete(id);
-    await _loadPokemon();
+    await _loadDiaries();
   }
 
   @override
@@ -233,8 +194,8 @@ class _DiaryListPageState extends State<DiaryListPage> {
               tooltip: 'โหลดคำคมใหม่',
               onPressed: () {
                 setState(() {
-                  _pokemons =
-                      ApiService.fetchPokemon(); // สร้าง Future ใหม่ = โหลดใหม่ (ตั้งใจ)
+                  _quoteFuture =
+                      ApiService.fetchQuote(); // สร้าง Future ใหม่ = โหลดใหม่ (ตั้งใจ)
                 });
               },
             ),
@@ -246,8 +207,8 @@ class _DiaryListPageState extends State<DiaryListPage> {
         children: [
           // ── กล่องคำคมประจำวัน (ซ่อนเมื่อเปิดค้นหา เพื่อความสบายตา) ──
           if (!_isSearching)
-            FutureBuilder<Pokemon>(
-              future: _pokemons,
+            FutureBuilder<Quote>(
+              future: _quoteFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Padding(
@@ -257,7 +218,7 @@ class _DiaryListPageState extends State<DiaryListPage> {
                         CircularProgressIndicator(),
                         SizedBox(height: 8),
                         Text(
-                          'กำลังโหลดโปเกมอน',
+                          'กำลังโหลดคำคม...',
                           style: TextStyle(color: Colors.grey),
                         ),
                       ],
@@ -269,13 +230,13 @@ class _DiaryListPageState extends State<DiaryListPage> {
                     child: Column(
                       children: [
                         const Text(
-                          'โหลดโปเกมอนไม่ได้',
+                          'โหลดคำคมไม่ได้',
                           style: TextStyle(color: Colors.grey),
                         ),
                         TextButton(
                           onPressed: () {
                             setState(() {
-                              _pokemons = ApiService.fetchPokemon(); // โหลดใหม่
+                              _quoteFuture = ApiService.fetchQuote(); // โหลดใหม่
                             });
                           },
                           child: const Text('ลองใหม่'),
@@ -284,8 +245,8 @@ class _DiaryListPageState extends State<DiaryListPage> {
                     ),
                   );
                 } else {
-                  _currntpokemon = snapshot.data!;
-                  final poke = _currntpokemon!;
+                  _currentQuote = snapshot.data!;
+                  final quote = _currentQuote!;
                   return Container(
                     width: double.infinity,
                     margin: const EdgeInsets.all(12),
@@ -297,7 +258,7 @@ class _DiaryListPageState extends State<DiaryListPage> {
                     child: Column(
                       children: [
                         Text(
-                          '"${poke.id}"',
+                          '"${quote.text}"',
                           style: const TextStyle(
                             fontStyle: FontStyle.italic,
                             fontSize: 15,
@@ -306,7 +267,7 @@ class _DiaryListPageState extends State<DiaryListPage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '— ${poke.name}',
+                          '— ${quote.author}',
                           style: const TextStyle(
                             color: Colors.grey,
                             fontSize: 13,
@@ -324,11 +285,11 @@ class _DiaryListPageState extends State<DiaryListPage> {
                                   MaterialPageRoute(
                                     builder: (context) => AddDiaryPage(
                                       quote:
-                                          '"${poke.id}" author: ${poke.name}',
+                                          '"${quote.text}" — ${quote.author}',
                                     ),
                                   ),
                                 );
-                                if (result != null && result is Poke) {
+                                if (result != null && result is Diary) {
                                   await _addDiary(result);
                                 }
                               },
@@ -351,7 +312,7 @@ class _DiaryListPageState extends State<DiaryListPage> {
 
           // ── รายการบันทึกเดิม ยัดใน Expanded เพื่อไม่ให้ล้นหน้าจอ ──
           Expanded(
-            child: pokemons.isEmpty
+            child: diaries.isEmpty
                 ? const Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -359,7 +320,7 @@ class _DiaryListPageState extends State<DiaryListPage> {
                         Icon(Icons.book_outlined, size: 80, color: Colors.grey),
                         SizedBox(height: 16),
                         Text(
-                          'ยังไม่มีโปรเกมอน',
+                          'ยังไม่มีบันทึก',
                           style: TextStyle(fontSize: 18, color: Colors.grey),
                         ),
                         Text(
@@ -448,7 +409,7 @@ class _DiaryListPageState extends State<DiaryListPage> {
                                           AddDiaryPage(existing: diary),
                                     ),
                                   );
-                                  if (result != null && result is Poke) {
+                                  if (result != null && result is Diary) {
                                     await _updateDiary(result);
                                   }
                                 },
@@ -504,7 +465,7 @@ class _DiaryListPageState extends State<DiaryListPage> {
             context,
             MaterialPageRoute(builder: (context) => const AddDiaryPage()),
           );
-          if (result != null && result is Poke) {
+          if (result != null && result is Diary) {
             // ถ้าได้บันทึกกลับมา
             _addDiary(result);
           }
@@ -593,10 +554,14 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
-  int _selectedIndex = 0; // หน้าที่เลือกอยู่ (0=บันทึก, 1=เกี่ยวกับ)
+  int _selectedIndex = 0; // หน้าที่เลือกอยู่ (0=บันทึก, 1=ออนไลน์, 2=เกี่ยวกับ)
 
   // รายการหน้า
-  final List<Widget> _pages = [const DiaryListPage(), const AboutPage()];
+  final List<Widget> _pages = [
+    const DiaryListPage(), // SQLite เดิม
+    const ApiDiaryPage(), // แท็บใหม่
+    const AboutPage(),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -612,6 +577,7 @@ class _MainPageState extends State<MainPage> {
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.book), label: 'บันทึก'),
+          BottomNavigationBarItem(icon: Icon(Icons.cloud), label: 'ออนไลน์'),
           BottomNavigationBarItem(icon: Icon(Icons.info), label: 'เกี่ยวกับ'),
         ],
       ),
@@ -635,11 +601,11 @@ class AboutPage extends StatelessWidget {
               Icon(Icons.book, size: 80, color: Colors.indigo),
               SizedBox(height: 16),
               Text(
-                'Mypokemon',
+                'MyDiary',
                 style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 8),
-              Text('โปรเกมอน', style: TextStyle(fontSize: 16)),
+              Text('บันทึกไดอารี่', style: TextStyle(fontSize: 16)),
               SizedBox(height: 4),
               Text('สร้างโดย จิรายุ จำปา'), // << ใส่ชื่อตัวเอง
               Text('รหัสนักศึกษา 67011212082'), // << ใส่รหัส
@@ -696,7 +662,9 @@ class _AddDiaryPageState extends State<AddDiaryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('โปเกมอน')),
+      appBar: AppBar(
+        title: Text(widget.existing != null ? 'แก้ไขบันทึก' : 'เขียนบันทึก'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -739,7 +707,7 @@ class _AddDiaryPageState extends State<AddDiaryPage> {
               TextFormField(
                 controller: _titleController,
                 decoration: const InputDecoration(
-                  labelText: 'ชื่อโปรเกมอน',
+                  labelText: 'ชื่อเรื่อง',
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) {
@@ -766,7 +734,7 @@ class _AddDiaryPageState extends State<AddDiaryPage> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _selectedMood,
+                initialValue: _selectedMood,
                 decoration: const InputDecoration(
                   labelText: 'อารมณ์วันนี้',
                   border: OutlineInputBorder(),
@@ -838,3 +806,328 @@ class _AddDiaryPageState extends State<AddDiaryPage> {
     );
   }
 }
+
+// ── หน้าบันทึกบน Cloud (REST API) ──
+class ApiDiaryPage extends StatefulWidget {
+  const ApiDiaryPage({super.key});
+  @override
+  State<ApiDiaryPage> createState() => _ApiDiaryPageState();
+}
+
+class _ApiDiaryPageState extends State<ApiDiaryPage> {
+  late Future<List<dynamic>> _diariesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDiaries();
+  }
+
+  void _loadDiaries() {
+    setState(() {
+      _diariesFuture = ApiService.getDiaries();
+    });
+  }
+
+  // เพิ่มแล้วโหลดใหม่ (พร้อม try-catch จาก Lab 4)
+  Future<void> _addDiary(
+    String title,
+    String content,
+    String mood,
+    String date,
+  ) async {
+    try {
+      await ApiService.createDiary(title, content, mood, date);
+      _loadDiaries();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('เพิ่มไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteDiary(dynamic id) async {
+    try {
+      await ApiService.deleteDiary(id);
+      _loadDiaries();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ลบไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต')),
+        );
+      }
+    }
+  }
+
+  // แก้ไขแล้วโหลดใหม่
+  Future<void> _updateDiary(
+    dynamic id,
+    String title,
+    String content,
+    String mood,
+    String date,
+  ) async {
+    try {
+      await ApiService.updateDiary(id, title, content, mood, date);
+      _loadDiaries();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('แก้ไขไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('บันทึกบน Cloud (REST API)')),
+      body: FutureBuilder<List<dynamic>>(
+        future: _diariesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('ผิดพลาด: ${snapshot.error}'));
+          }
+          final diaries = snapshot.data!;
+          if (diaries.isEmpty) {
+            return const Center(child: Text('ยังไม่มีบันทึก กดปุ่ม +'));
+          }
+          return ListView.builder(
+            itemCount: diaries.length,
+            itemBuilder: (context, i) {
+              final obj = diaries[i];
+              return Card(
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                child: ListTile(
+                  title: Text(obj['title'] ?? ''),
+                  subtitle: Text(
+                    '${obj['mood'] ?? ''} • ${obj['date'] ?? ''} • ${obj['content'] ?? ''}',
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min, // ให้ Row กว้างเท่าที่จำเป็น
+                    children: [
+                      // ── ปุ่มแก้ไข: เปิดฟอร์มโหมดแก้ (ส่ง obj เดิมไป) ──
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue),
+                        onPressed: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ApiFormPage(existing: obj), // โหมดแก้
+                            ),
+                          );
+                          if (result is Map) {
+                            await _updateDiary(
+                              obj['id'],
+                              result['title'],
+                              result['content'],
+                              result['mood'],
+                              result['date'],
+                            );
+                          }
+                        },
+                      ),
+                      // ── ปุ่มลบ + ยืนยันก่อนลบ ──
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('ลบบันทึก?'),
+                              content: Text('ต้องการลบ "${obj['title']}" ใช่ไหม'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('ยกเลิก'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text(
+                                    'ลบ',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            await _deleteDiary(obj['id']);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      // ── ปุ่มเพิ่ม: เปิดฟอร์มโหมดเพิ่ม แล้วรับค่ากลับมา createDiary ──
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const ApiFormPage(), // โหมดเพิ่ม
+            ),
+          );
+          if (result is Map) {
+            await _addDiary(
+              result['title'],
+              result['content'],
+              result['mood'],
+              result['date'],
+            );
+          }
+        },
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+// ── ฟอร์มเพิ่ม/แก้ไขบันทึก Cloud (ApiFormPage) ──
+class ApiFormPage extends StatefulWidget {
+  final Map? existing; // ส่ง obj เดิมมา = โหมดแก้ / null = เพิ่มใหม่
+  const ApiFormPage({super.key, this.existing});
+  @override
+  State<ApiFormPage> createState() => _ApiFormPageState();
+}
+
+class _ApiFormPageState extends State<ApiFormPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _contentController = TextEditingController();
+  String _mood = 'มีความสุข';
+  final List<String> _moods = [
+    'มีความสุข',
+    'เฉยๆ',
+    'เศร้า',
+    'เหนื่อย',
+    'ตื่นเต้น',
+  ];
+  DateTime _date = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.existing != null) {
+      // โหมดแก้: เติมค่าเดิมลงฟอร์ม
+      _titleController.text = widget.existing!['title'] ?? '';
+      _contentController.text = widget.existing!['content'] ?? '';
+      _mood = widget.existing!['mood'] ?? 'มีความสุข';
+      _date =
+          DateTime.tryParse(widget.existing!['date'] ?? '') ?? DateTime.now();
+    }
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _contentController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.existing == null ? 'เพิ่มบันทึก' : 'แก้ไขบันทึก'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                TextFormField(
+                  controller: _titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'ชื่อเรื่อง',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty)
+                          ? 'กรุณากรอกชื่อเรื่อง'
+                          : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _contentController,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'เนื้อหา',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty)
+                          ? 'กรุณากรอกเนื้อหา'
+                          : null,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: _mood,
+                  decoration: const InputDecoration(
+                    labelText: 'อารมณ์',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.mood),
+                  ),
+                  items: _moods
+                      .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _mood = v!),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: const Icon(Icons.calendar_today),
+                  title: Text('วันที่: ${_date.toString().substring(0, 10)}'),
+                  trailing: const Icon(Icons.edit),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _date,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2030),
+                    );
+                    if (picked != null) setState(() => _date = picked);
+                  },
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (_formKey.currentState!.validate()) {
+                        // ส่งค่ากลับเป็น Map ให้หน้ารายการเอาไปเรียก API
+                        Navigator.pop(context, {
+                          'title': _titleController.text.trim(),
+                          'content': _contentController.text.trim(),
+                          'mood': _mood,
+                          'date': _date.toString().substring(0, 10),
+                        });
+                      }
+                    },
+                    child: const Text('บันทึก'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
